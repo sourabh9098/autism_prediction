@@ -1,8 +1,8 @@
 # 🧩 Autism Spectrum Disorder (ASD) Predictor
 
-> **Best Model:** Random Forest + SMOTE · Test Accuracy: **98.1%** · F1 Score: **0.957**
+> **Best Model:** Random Forest + SMOTE · Test Accuracy: 98.1% · F1 Score: 0.957
 
-## What This Project Is About
+## What This Project Is About :-
 
 Autism Spectrum Disorder affects millions of people worldwide, but getting a proper diagnosis takes months — sometimes years. Early screening can make a massive difference. I built this project to explore whether machine learning can help identify ASD risk from a short behavioral questionnaire and basic demographic info.
 
