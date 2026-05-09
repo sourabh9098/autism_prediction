@@ -1,0 +1,281 @@
+================================================================
+  AUTISM SPECTRUM DISORDER (ASD) PREDICTOR
+  Machine Learning Project Report — End to End
+  Algorithms: LR · KNN · NB · DT · RF · AdaBoost · GB · XGBoost · SMOTE
+================================================================
+
+FINAL RESULTS AT A GLANCE
+--------------------------
+  Test Accuracy  : 98.1%
+  F1 Score       : 0.957
+  Recall (ASD)   : 94.9%
+  Models Tested  : 8+
+  Dataset        : 800 samples · 22 features · Binary Classification
+
+
+================================================================
+1. PROJECT OVERVIEW
+================================================================
+
+This project builds a machine learning model to screen for Autism
+Spectrum Disorder (ASD) using the AQ-10 behavioral questionnaire
+responses combined with demographic information.
+
+The goal is to identify high-risk individuals early so they can
+be referred for professional diagnosis — reducing the typical
+diagnostic delay of several years.
+
+The project covers:
+  - Full data cleaning and preprocessing
+  - Exploratory Data Analysis (EDA)
+  - One-hot encoding of categorical features
+  - 8 classification models trained and compared
+  - Hyperparameter tuning with GridSearchCV
+  - SMOTE oversampling for class imbalance
+  - Final model saved with Pickle
+
+
+================================================================
+2. DATA CLEANING & PREPROCESSING
+================================================================
+
+Issues Found & Fixed:
+---------------------
+  - ID column             → Dropped (just a row index)
+  - age_desc column       → Dropped (same value for every row)
+  - age dtype was float   → Converted to int
+  - '?' in ethnicity      → Replaced with 'Others' (203 rows)
+  - '?' in relation       → Replaced with 'Others' (40 rows)
+  - 'others' (lowercase)  → Unified to 'Others'
+  - contry_of_res         → Fixed: Hong Kong→China, Viet Nam→VietNam
+  - contry_of_res         → Dropped before encoding (too many countries)
+
+Class Imbalance — The Core Problem:
+------------------------------------
+  Class 0 (No ASD) : 639 samples  →  79.9%
+  Class 1 (ASD)    : 161 samples  →  20.1%
+
+  This 80/20 split meant every model trained on raw data learned
+  to mostly predict the majority class and still get high accuracy.
+  This was the root cause of poor recall on the ASD class.
+
+Encoding:
+---------
+  pd.get_dummies() with drop_first=True was applied on:
+  ethnicity, gender, jaundice, austim, used_app_before, relation
+  Final encoded dataset: 29 features
+
+
+================================================================
+3. EXPLORATORY DATA ANALYSIS (EDA)
+================================================================
+
+Key Findings:
+-------------
+  - Age is right-skewed
+      Mean = 27.96, Median = 24.0
+      39 outliers above IQR upper bound
+      Range: 2 to 89 years
+
+  - Result is left-skewed
+      Mean = 8.54, Median = 9.61
+      Minimum value: -6.14
+
+  - A6_Score skewed toward 0
+      Only 243 out of 800 scored 1 (most skewed AQ score)
+
+  - Gender: Slight female majority in dataset
+
+  - Ethnicity: White-European dominant (257 samples)
+               '?' appeared 203 times before cleaning
+
+  - Relation: 709 of 800 forms filled by 'Self'
+
+  - Correlation heatmap showed A1-A10 scores and 'result'
+    have expected correlation with Class/ASD target
+
+
+================================================================
+4. MODEL COMPARISON — BEFORE SMOTE
+================================================================
+
+All 8 models were trained on the raw imbalanced dataset.
+Despite decent accuracy, all models showed poor recall on
+the minority ASD class.
+
+  Model               | Test Acc | Train Acc | Recall(ASD) | F1
+  --------------------|----------|-----------|-------------|------
+  Logistic Regression |  87.5%   |   88.8%   |    69.5%    | 0.713
+  KNN (k=7)           |  81.1%   |   87.7%   |    44.1%    | 0.510
+  Naive Bayes         |  80.3%   |   80.0%   |    88.1%    | 0.667
+  Decision Tree       |  85.6%   |   89.0%   |    64.4%    | 0.667
+  Random Forest       |  87.1%   |  100.0%   |    59.3%    | 0.673  ← overfitting
+  AdaBoost            |  88.3%   |   86.0%   |    76.3%    | 0.744
+  Gradient Boost      |  85.6%   |   95.3%   |    62.7%    | 0.661
+  XGBoost             |  86.0%   |   97.6%   |    61.0%    | 0.661
+
+  Note: Random Forest had 100% training accuracy = clear overfitting.
+  AdaBoost had the best F1 before SMOTE, but still only 76.3% recall.
+
+
+================================================================
+5. HYPERPARAMETER TUNING — GRIDSEARCHCV
+================================================================
+
+GridSearchCV with 5-fold CV was run on XGBoost and Random Forest,
+optimizing for recall (most important metric for medical screening).
+
+XGBoost — 192 parameter combinations:
+  param_grid = {
+      'n_estimators' : [50, 100, 200],
+      'max_depth'    : [3, 5, 7, 11],
+      'learning_rate': [0.01, 0.05, 0.5, 0.1],
+      'subsample'    : [0.5, 0.7, 0.8, 1.0]
+  }
+  Best Params : learning_rate=0.1, max_depth=3,
+                n_estimators=50, subsample=0.8
+  Best Recall : 62.8%  ← still not enough
+
+Random Forest — 36 parameter combinations:
+  param_grid = {
+      'n_estimators'    : [50, 100, 200],
+      'max_depth'       : [3, 5, 7],
+      'min_samples_split': [2, 5],
+      'min_samples_leaf' : [1, 2]
+  }
+  Best Params : max_depth=7, min_samples_leaf=2,
+                min_samples_split=2, n_estimators=100
+  Best Recall : 60.9%  ← tuning alone couldn't fix the imbalance
+
+CONCLUSION: Hyperparameter tuning has a ceiling on imbalanced data.
+The problem needed a data-level fix, not a model-level one.
+
+
+================================================================
+6. SMOTE — THE TURNING POINT
+================================================================
+
+SMOTE (Synthetic Minority Over-sampling Technique) generates
+synthetic samples of the minority class by interpolating between
+existing minority instances.
+
+  IMPORTANT: Applied ONLY on training set to prevent data leakage.
+
+  Before SMOTE → Class 0: 434  |  Class 1: 102  (81% / 19%)
+  After SMOTE  → Class 0: 511  |  Class 1: 511  (50% / 50%) ✓
+
+Code:
+  X_train_s, X_test_s, y_train_s, y_test_s = train_test_split(
+      X, y, test_size=0.2, stratify=y, random_state=42)
+
+  smote = SMOTE(random_state=42, k_neighbors=3)
+  X_train_smote, y_train_smote = smote.fit_resample(X_train_s, y_train_s)
+
+
+================================================================
+7. FINAL RESULTS — RANDOM FOREST + SMOTE
+================================================================
+
+Before vs After SMOTE Recall Comparison:
+-----------------------------------------
+  XGBoost       : 61.0%  →  91.5%  (+30.5%)
+  Random Forest : 59.3%  →  94.9%  (+35.6%)  ★ BEST
+
+Full Metrics — rf_smote (Final Model):
+----------------------------------------
+  Metric      |  Test Set  |  Train Set
+  ------------|------------|----------
+  Accuracy    |   98.1%    |   96.1%
+  Precision   |   96.6%    |   85.8%
+  Recall      |   94.9%    |   95.1%
+  F1 Score    |   0.957    |   0.902
+
+Confusion Matrix (Test Set — 264 samples):
+-------------------------------------------
+                   Predicted: No ASD   Predicted: ASD
+  Actual: No ASD       203 (TN)            2 (FP)
+  Actual: ASD            3 (FN)           56 (TP)
+
+  Total wrong: only 5 out of 264 samples.
+  3 false negatives (missed ASD) + 2 false positives (healthy flagged).
+
+Confusion Matrix (Train Set):
+  [[418  16]
+   [  5  97]]
+
+
+================================================================
+8. GRIDSEARCHCV AFTER SMOTE
+================================================================
+
+Re-ran GridSearchCV on SMOTE-balanced training data:
+
+  Best Params : max_depth=7, min_samples_leaf=1,
+                min_samples_split=2, n_estimators=100
+  Best CV Recall (5-fold) : 95.3%  ← massive jump from 60.9%
+
+The default rf_smote model was saved as final because it had
+the best balance of precision and recall overall.
+
+
+================================================================
+9. KEY LEARNINGS
+================================================================
+
+1. ACCURACY IS MISLEADING ON IMBALANCED DATA
+   Every model showed 80-88% accuracy while missing 40% of ASD
+   cases. In healthcare ML, recall on the positive class is what
+   actually matters.
+
+2. HYPERPARAMETER TUNING HAS A CEILING
+   After 192 XGBoost combinations and 36 RF combinations, recall
+   only improved from 61% to 62.8%. Tuning cannot compensate for
+   data imbalance.
+
+3. SMOTE MUST BE APPLIED AFTER TRAIN-TEST SPLIT
+   Applying SMOTE before splitting leaks synthetic samples into
+   the test set, creating artificially inflated results. Always
+   split first, then resample.
+
+4. SAME MODEL + BETTER DATA = COMPLETELY DIFFERENT RESULTS
+   Random Forest went from 59.3% to 94.9% recall without
+   changing a single hyperparameter. The data distribution was
+   the bottleneck, not the algorithm.
+
+5. FALSE NEGATIVE VS FALSE POSITIVE TRADE-OFF
+   For ASD screening, missing a real ASD case (FN) is far worse
+   than flagging a healthy person for review (FP). Optimizing
+   recall was the correct decision for this problem.
+
+
+================================================================
+10. TECH STACK
+================================================================
+
+  Library          | Purpose
+  -----------------|------------------------------------------
+  Python 3         | Core language
+  Pandas           | Data loading, cleaning, EDA, encoding
+  NumPy            | Numerical operations
+  Matplotlib       | Histograms, boxplots, countplots
+  Seaborn          | Correlation heatmap, distribution plots
+  Scikit-learn     | All ML models, GridSearchCV, all metrics
+  XGBoost          | Gradient boosting classifier
+  imbalanced-learn | SMOTE oversampling
+  Pickle           | Model serialization → rf_smote_model.pkl
+  Streamlit        | Interactive web UI for predictions
+
+
+================================================================
+FINAL TAKEAWAY
+================================================================
+
+  Accuracy on imbalanced data is not a metric — it is a lie.
+  The fix was not a better algorithm. It was better data.
+
+  Before SMOTE : Best Recall = 76.3%  (AdaBoost)
+  After SMOTE  : Best Recall = 94.9%  (Random Forest)
+
+================================================================
+  Live App : https://autismprediction-by-sourabh.streamlit.app/
+================================================================
