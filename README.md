@@ -11,7 +11,7 @@ The dataset has 800 samples with AQ-10 behavioral scores, age, gender, ethnicity
 # Image
 ![Dashboard](Dashboard.png)
 
-[![Live Demo](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://autismprediction-by-sourabh.streamlit.app/)
+[![Live Demo](https://autismprediction-by-sourabh.streamlit.app/)
 
 
 ## The Real Journey — What Actually Happened
@@ -115,6 +115,8 @@ Confusion Matrix (Train):
 ├── train.csv                  # Dataset (800 samples, 22 features)
 ├── rf_smote_model.pkl         # Final saved model
 ├── app.py                     # Streamlit UI for predictions
+├── Dashboard.png              # ScreenShot of UI
+├── requirements.txt           # All Library that used
 └── README.md
 ```
 
@@ -150,6 +152,7 @@ Confusion Matrix (Train):
 ---
 
 ## How to Run
+[![Live Demo](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://autismprediction-by-sourabh.streamlit.app/)
 
 
 ---
